@@ -1,0 +1,153 @@
+<html>
+
+    <head>
+        <script src="http:///s3.neyer.me/js/jquery.min.js"></script>
+  <script>
+$(document).ready(function(){
+
+    c = document.getElementById("draw-canvas");
+    var ctx = c.getContext("2d");
+
+    var lineBorder = 10;
+    var width = 800, height = 200;
+    var lineWidth = 20;
+    var lineSpacing = 5;
+    var maxBoxHeight = height - (lineBorder+lineSpacing)*2;
+
+
+  // as the user clicks, we will add to this list
+    var clickDurations = [];
+    var maxIntervals = 31;
+
+    // first draw a box around it
+    function drawBorder() {
+      ctx.beginPath();
+      ctx.moveTo(lineBorder, lineBorder);
+      ctx.lineTo(width-lineBorder, lineBorder);
+      ctx.lineTo(width-lineBorder, height-lineBorder);
+      ctx.lineTo(lineBorder, height-lineBorder);
+      ctx.closePath();
+      ctx.stroke();
+
+      // draw the midpoint
+      ctx.beginPath();
+      ctx.moveTo(lineBorder, height/2);
+      ctx.lineTo(width-lineBorder, height/2);
+      ctx.closePath();
+      ctx.stroke();
+    };
+
+    drawBorder();
+
+
+    // the goal here is to draw some shapes of varying sizes
+    // a large number of shapes with small sizes
+    // and a small number of shapes with large sizes
+
+    function clearBox() {
+      ctx.fillStyle = 'rgba(255,255,255,0.2)';
+      ctx.fillRect(0,0,width,height);
+    }
+
+    function drawVerticalBar(barX, thisDuration){
+      // given the size of the rectangle
+      // we can use this as just one linear dimension
+
+      var thisHeight = Math.min((thisDuration/2000.0) * maxBoxHeight, maxBoxHeight);
+
+      // use the error to pick a color
+      // we'll have 100 red value for no error; 200% red for 'too high'
+      var thisError = Math.abs(Math.min(thisDuration - 1000, 1000));
+      var errorFraction = thisError/1000.0;
+      // now take the square root of the error fraction so that small errors appear bigger
+      errorFraction = Math.sqrt(errorFraction);
+      var redCount = 100 + errorFraction*100;
+      var blueCount = 200 - errorFraction*200;
+      ctx.fillStyle = 'rgba('+redCount+',100,'+blueCount+',0.4)';
+      var lineLeft = barX;
+      var lineTop = lineBorder + lineSpacing + (maxBoxHeight - thisHeight);
+      ctx.fillRect(
+        lineLeft, lineTop,
+        lineWidth, thisHeight);
+    };
+
+    var start = null;
+    var breathTimeMs = 5000;
+    var cycleTimeMs = breathTimeMs*4;
+    function drawAll(timestamp) {
+      clearBox();
+      drawBorder();
+      
+      var thisX = lineBorder+lineSpacing;
+      var boxesToDraw = clickDurations;
+      if (clickDurations.length > maxIntervals) {
+        boxesToDraw = clickDurations.slice(clickDurations.length - maxIntervals);
+      }
+      for (var i = 0; i < boxesToDraw.length; ++i) {
+        var thisDuration = boxesToDraw[i];
+        drawVerticalBar(thisX, thisDuration);
+        thisX = thisX + lineWidth + lineSpacing;
+
+      }
+      window.requestAnimationFrame(drawAll);
+    }
+
+  window.requestAnimationFrame(drawAll);
+  var lastClickTime = 0;
+
+
+  function getStats (){
+    var sum = 0;
+    var sumOfErrors = 0;
+    for (var i = 0; i < clickDurations.length;++i) {
+      var thisClickDur = clickDurations[i];
+      sum = sum + thisClickDur;
+      sumOfErrors = sumOfErrors + Math.abs(thisClickDur - 1000);
+    }
+    var numClicks = clickDurations.length;
+    return {
+      average: sum/numClicks,
+      averageError: sumOfErrors/numClicks
+    }
+
+  }
+
+
+  function generateStatsHtml() {
+    var stats = getStats();
+    return "Total Clicks: "+clickDurations.length+"<br>"+
+      "Average click: " + stats.average+"<br>"+
+      "Average error: " + stats.averageError
+  }
+
+  $("#click-me").on("click", function() {
+    var thisClickTime = new Date().getTime();
+    if (lastClickTime != 0) {
+       var clickDelta = thisClickTime - lastClickTime;
+      $("#interval-results").text(clickDelta+"ms");
+      $("#stats").html(generateStatsHtml())
+      clickDurations.push(clickDelta);
+      $("#raw-intervals").append("<li>"+clickDelta+"</li>");
+    } else {
+      $("#interval-results").text("wait one second");
+    }
+    lastClickTime = thisClickTime;
+
+
+  });
+    
+});
+</script>
+</head>
+<body>
+  <div>
+    <a href="https://apxhard.com">Brought to you by APXHARD.com</a></div>
+  <div><button id="click-me" style="height:200px">Click or Tap with One Second Intervals</button></div>
+  <div id="interval-results"></div>
+  <div id="stats"></div>
+  <canvas id="draw-canvas" width="800" height="200"></canvas>
+  <ol id="raw-intervals">
+  </ol>
+</body>
+</html>
+
